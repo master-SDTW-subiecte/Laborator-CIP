@@ -1,0 +1,60 @@
+#include <stdio.h>
+#include "mpi.h"
+
+#define NPROCS 16
+
+int main(int argc, char ** argv)
+{
+	int rank, size;
+	int newRank, newSize;
+	int subgroup;
+	MPI_Comm splitComm;
+	MPI_Status status;
+
+	MPI_Init(&argc, &argv);
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	printf("\nOriginal: %d din %d\n", rank, size);
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	subgroup = (((rank >> 1) & 1) == 0) ? 0 : 1;
+
+	MPI_Comm_split(MPI_COMM_WORLD, subgroup, rank, &splitComm);
+	MPI_Comm_rank(splitComm, &newRank);
+	MPI_Comm_size(splitComm, &newSize);
+	printf("[old %d] subgroup: %d, newRank: %d, newSize: %d\n", rank, subgroup, newRank, newSize);
+
+	if (newRank == 0 && subgroup == 0)
+	{
+		int val = 0;
+		for (int i = 1; i<newSize; ++i)
+		{
+			MPI_Send(&val, 1, MPI_INT, i, 0, splitComm);
+		}
+
+		printf("[%d] subgroup [%d] Trimit valoarea %d la toti din subgrup\n", newRank, subgroup, val);
+	}
+	else if (newRank == 1 && subgroup == 1)
+	{
+		int val = 1;
+		for (int i = 0; i<newSize; ++i)
+		{
+			if (i != 1)
+				MPI_Send(&val, 1, MPI_INT, i, 0, splitComm);
+		}
+
+		printf("[%d] subgroup [%d] Trimit valoarea %d la toti din subgrup\n", newRank, subgroup, val);
+	}
+	else
+	{
+		int val = 2;
+		MPI_Recv(&val, 1, MPI_INT, MPI_ANY_SOURCE, 0, splitComm, &status);
+
+		printf("[%d] subgroup [%d] Am primit valoarea %d de la %d\n", newRank, subgroup, val, status.MPI_SOURCE);
+	}
+
+	MPI_Comm_free(&splitComm);
+	MPI_Finalize();
+	return 0;
+}

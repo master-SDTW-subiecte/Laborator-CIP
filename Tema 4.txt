@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <mpi.h>
+#define NPROCS 16
+
+int main(int argc, char * argv[])
+{
+	int rank, new_rank, sendbuf, recvbuf, ranks1[4] = { 0, 1, 2, 3 }, ranks2[4] = { 4, 5, 6, 7 }, ranks3[4] = { 8, 9, 10, 11 }, ranks4[4] = { 12, 13, 14, 15 };
+
+	MPI_Group orig_group, new_group;
+	MPI_Comm new_comm;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	sendbuf = rank;
+
+	/* Determinarea handler-ului grupului original */
+	MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
+	/* Divizarea rangurilor in cele doua subgrupuri*/
+
+	switch (rank >> 2)
+	{
+	case 0:
+		MPI_Group_incl(orig_group, NPROCS/4, ranks1, &new_group);
+		break;
+	case 1:
+		MPI_Group_incl(orig_group, NPROCS/4, ranks2, &new_group);
+		break;
+	case 2:
+		MPI_Group_incl(orig_group, NPROCS/4, ranks3, &new_group);
+		break;
+	default:
+		MPI_Group_incl(orig_group, NPROCS/4, ranks4, &new_group);
+		break;
+	}
+
+	/* Crearea unui comunicator nou pentru a gestiona comunicatiile
+	colective din cadrul fiecarui grup */
+
+	MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+	MPI_Allreduce(&sendbuf, &recvbuf, 1, MPI_INT, MPI_SUM, new_comm);
+	MPI_Group_rank(new_group, &new_rank);
+	printf("rank= %d newrank= %d recvbuf= %d\n", rank, new_rank, recvbuf);
+	MPI_Finalize();
+	return 0;
+}

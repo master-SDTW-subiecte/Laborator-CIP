@@ -1,0 +1,49 @@
+#include<iostream>
+#include<mpi.h>
+using namespace std;
+
+struct _point {
+	int x, y, z;
+};
+
+
+int main(int argc, char ** argv) {
+
+	int rank, size;
+	
+	int i;
+
+	MPI_Datatype simpleStruct, vectorType;
+	MPI_Status stat;
+	struct _point test[10];
+
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	
+	MPI_Type_contiguous(3, MPI_INT, &simpleStruct);
+	MPI_Type_commit(&simpleStruct);
+	MPI_Type_vector(10, 1, 3, simpleStruct, &vectorType);
+	MPI_Type_commit(&vectorType);
+
+	if (0 == rank) {
+		for (i = 0; i<10; ++i) {
+			test[i].x = i + 1;
+			test[i].y = i + 2;
+			test[i].z = i + 3;
+		}
+		MPI_Send(test, 1, vectorType, 1, 99, MPI_COMM_WORLD);
+	}
+	else {
+		if (1 == rank) {
+			MPI_Recv(test, 1, vectorType, 0, 99, MPI_COMM_WORLD, &stat);
+			for (i = 0; i<10; ++i) {
+				printf("%d %d %d\n", test[i].x, test[i].y, test[i].z);
+			}
+		}
+	}
+	MPI_Type_free(&vectorType);
+	MPI_Type_free(&simpleStruct);
+	MPI_Finalize();
+	return 0;
+}

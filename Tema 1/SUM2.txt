@@ -1,0 +1,87 @@
+#include<iostream>
+#include<mpi.h>
+#include<stdlib.h>
+using namespace std;
+
+#define N 4
+
+int log(int n)
+{
+	int y = 0;
+	while (n != 1)
+	{
+		n = n >> 1;
+		++y;
+	}
+	return y;
+}
+
+int main(int argc, char **argv)
+{
+	MPI_Init(&argc, &argv);
+
+	int p, rank;
+
+	MPI_Comm_size(MPI_COMM_WORLD, &p);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+	MPI_Status status;
+
+	int n = 8;
+	int m = log(n); // m=3
+	//int A[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+	int A[] = { 5, 2, 7, 3, 1, 6, 0, 4 };
+	
+	int q = log(p); // q=2 dimensiuni ale hipercubului
+	int r = 1 << (m - q); //r=2
+
+	int *sp = (int*)malloc(sizeof(int)*r);
+	for (int i = 0; i < r; ++i)
+		sp[i] = 0;
+
+	for (int i = 0; i <= (1 << (m - q)) - 1; ++i)
+		sp[i] = A[i*(1 << q) + rank];
+
+	int mask = 0;
+	for (int i = 0; i <= q - 1; ++i)
+	{
+		for (int j = 0; j <= (1 << (m - q)) - 1; ++j)
+		{
+			if ((rank & mask) == 0)
+			{
+
+				if ((rank & (1 << i)) == 0)
+				{
+					int source = rank ^ (1 << i);
+					int val = 0;
+					MPI_Recv(&val, 1, MPI_INT, source, 0, MPI_COMM_WORLD, &status);
+					sp[j] = sp[j] + val;
+				}
+				else
+				{
+					int destination = rank ^ (1 << i);
+					MPI_Send(&sp[j], 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
+				}
+			}
+		}
+
+		mask = mask ^ (1 << i);
+	}
+
+	int s = 0; //suma finala
+	int nrPasi=0;
+
+	if (rank == 0)
+	{
+		for (int j = 0; j <= (1 << (m - q)) - 1; ++j)
+		{
+			nrPasi++;
+			s = s + sp[j];
+		}
+
+		printf("\n Suma elementelor este %d\n", s);
+	}
+
+	MPI_Finalize();
+	return 0;
+}
